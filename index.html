@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>nevent generator</title>
+  <script type="module">
+    import { nip19 } from "https://esm.sh/nostr-tools";
+
+    const eventId = "0a3683c63555585127a20019cf3e4187f8c7bf3aae27f905c3807b49d38d057b";
+    const pubkey = "6b0a60cff3eca5a2b2505ccb3f7133d8422045cbef40f3d2c6189fb0b952e7d4";
+    const kind = 17;
+    const relay = "wss://thingstr-relay.fly.dev";
+
+    const nevent = nip19.neventEncode({
+      id: eventId,
+      relays: [relay],
+      author: pubkey,
+      kind: kind
+    });
+
+    document.body.innerHTML = `<p>Generated nevent: ${nevent}</p>`;
+  </script>
+</head>
+<body></body>
+</html>
