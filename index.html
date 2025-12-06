@@ -1,25 +1,145 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>nevent generator</title>
-  <script type="module">
-    import { nip19 } from "https://esm.sh/nostr-tools";
+    <meta charset="utf-8">
+    <title>nevent generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; }
+        textarea { width: 100%; min-height: 100px; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; }
+        .input-section, .output-section { margin-bottom: 30px; border: 1px solid #eee; padding: 15px; border-radius: 5px; }
+        .input-fields textarea { min-height: 40px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        button { padding: 10px 15px; margin-right: 10px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; }
+        #extractButton { background-color: #007bff; color: white; }
+        #generateButton { background-color: #28a745; color: white; }
+        #neventOutput { background-color: #f8f9fa; border: 1px dashed #6c757d; color: #333; min-height: 50px; padding: 10px; overflow-wrap: break-word; }
+        .result-box { margin-top: 15px; }
+    </style>
+    <script type="module">
+        import { nip19 } from "https://esm.sh/nostr-tools";
 
-    const eventId = "0a3683c63555585127a20019cf3e4187f8c7bf3aae27f905c3807b49d38d057b";
-    const pubkey = "6b0a60cff3eca5a2b2505ccb3f7133d8422045cbef40f3d2c6189fb0b952e7d4";
-    const kind = 17;
-    const relay = "wss://thingstr-relay.fly.dev";
+        // DOM要素の取得
+        const jsonInput = document.getElementById('jsonInput');
+        const eventIdInput = document.getElementById('eventIdInput');
+        const pubkeyInput = document.getElementById('pubkeyInput');
+        const kindInput = document.getElementById('kindInput');
+        const relayInput = document.getElementById('relayInput');
+        const extractButton = document.getElementById('extractButton');
+        const generateButton = document.getElementById('generateButton');
+        const neventOutput = document.getElementById('neventOutput');
 
-    const nevent = nip19.neventEncode({
-      id: eventId,
-      relays: [relay],
-      author: pubkey,
-      kind: kind
-    });
+        // ボタンA: JSONから情報を抽出
+        extractButton.addEventListener('click', () => {
+            try {
+                const jsonText = jsonInput.value;
+                const event = JSON.parse(jsonText);
 
-    document.body.innerHTML = `<p>Generated nevent: ${nevent}</p>`;
-  </script>
+                // event.id, event.pubkey, event.kind, event.tagsからのリレーURLの抽出を試みる
+                // リレーURLは、例としてタグ[ "r", "wss://..." ]から取得すると仮定します。
+                
+                eventIdInput.value = event.id || '';
+                pubkeyInput.value = event.pubkey || '';
+                kindInput.value = event.kind !== undefined ? event.kind : '';
+
+                let relayUrl = '';
+                if (event.tags) {
+                    // タグからリレーURLを検索する一般的なパターン。例: ["r", "wss://..."]
+                    const rTag = event.tags.find(tag => tag[0] === 'r' && tag[1].startsWith('wss://'));
+                    if (rTag) {
+                        relayUrl = rTag[1];
+                    }
+                }
+                // デフォルトとして、ユーザーのコード例にあるリレーURLを入れておく
+                if (!relayUrl) {
+                    relayUrl = "wss://relay.nostr.band/"; 
+                }
+                
+                relayInput.value = relayUrl;
+
+                neventOutput.textContent = "JSONから情報を抽出しました。必要に応じて編集し、「neventを生成」ボタンを押してください。";
+
+            } catch (error) {
+                neventOutput.textContent = `🚨 エラー: JSONの解析に失敗しました。形式を確認してください。\n${error.message}`;
+                // エラー時はフィールドをクリア
+                eventIdInput.value = '';
+                pubkeyInput.value = '';
+                kindInput.value = '';
+                relayInput.value = '';
+            }
+        });
+
+        // ボタンB: neventを生成
+        generateButton.addEventListener('click', () => {
+            const eventId = eventIdInput.value.trim();
+            const pubkey = pubkeyInput.value.trim();
+            const kind = parseInt(kindInput.value.trim(), 10);
+            const relay = relayInput.value.trim();
+            const relays = relay ? [relay] : []; // relayがない場合は空配列にする
+
+            if (!eventId || !pubkey || isNaN(kind)) {
+                neventOutput.textContent = "🚨 エラー: Event ID, Pubkey, Kind (数値) は必須です。入力漏れがないか確認してください。";
+                return;
+            }
+
+            try {
+                // nip19.neventEncodeを使ってneventを生成
+                const nevent = nip19.neventEncode({
+                    id: eventId,
+                    relays: relays,
+                    author: pubkey,
+                    kind: kind
+                });
+
+                neventOutput.textContent = nevent;
+
+            } catch (error) {
+                neventOutput.textContent = `🚨 nevent生成エラー: ${error.message}`;
+            }
+        });
+
+        // 初期説明文
+        document.addEventListener('DOMContentLoaded', () => {
+            neventOutput.textContent = "👆 JSONを貼り付け、「情報を抽出」ボタンを押してください。";
+        });
+    </script>
 </head>
-<body></body>
+<body>
+
+    <h1>nevent generator</h1>
+
+    <div class="input-section">
+        <h2>JSONはこちら</h2>
+        <textarea id="jsonInput" placeholder="ここにNostrイベントのJSONを貼り付けてください。例: {'id': '...', 'pubkey': '...', 'kind': 1, 'content': '...' }"></textarea>
+        <button id="extractButton">抽出</button>
+    </div>
+
+    <hr>
+
+    <div class="input-section">
+        <h2>要素</h2>
+        <div class="input-fields">
+            <label for="eventIdInput">Event ID (id)</label>
+            <textarea id="eventIdInput"></textarea>
+
+            <label for="pubkeyInput">Author Pubkey (pubkey)</label>
+            <textarea id="pubkeyInput"></textarea>
+            
+            <label for="kindInput">Kind (kind)</label>
+            <textarea id="kindInput"></textarea>
+
+            <label for="relayInput">Relay URL (relays)</label>
+            <textarea id="relayInput" placeholder="省略可能ですが、通常はJSONの'tags'から取得、またはデフォルトが設定されます。"></textarea>
+        </div>
+        <button id="generateButton">neventを生成</button>
+    </div>
+
+    <hr>
+
+    <div class="output-section">
+        <h2>nevent</h2>
+        <div id="neventOutput" class="result-box"></div>
+    </div>
+
+</body>
 </html>
